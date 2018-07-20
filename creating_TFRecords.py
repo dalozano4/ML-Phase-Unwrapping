@@ -114,10 +114,10 @@ if __name__ == '__main__':
     validation_image_address, validation_annotation_address = list_images_in_directory(
             flags.validation_image_path, flags.validation_annotation_path)
     
-    convert_image_into_TFRecords(train_image_address[:15], 
+    convert_image_into_TFRecords(train_image_address, 
                                  train_annotation_address, 
                                  flags.path_tfrecords_train)
     
-#    convert_image_into_TFRecords(validation_image_address[:5], 
+#    convert_image_into_TFRecords(validation_image_address, 
 #                                 validation_annotation_address, 
 #                                 flags.path_tfrecords_validation)
