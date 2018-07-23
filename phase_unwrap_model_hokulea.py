@@ -373,7 +373,6 @@ def phase_unwrapping_tensorflow_model(_):
 
         for i in range(FLAGS.epochs):
 
-            # 
             train_steps = 0
             dataset.initialize_training_iterator(sess)
             print("<------------Training_output------------->")
@@ -396,23 +395,31 @@ def phase_unwrapping_tensorflow_model(_):
 
                     sess.run(optimizer, feed_dict=feed_dict)
 
-                    if train_steps % 3 == 0:
+                    # if train_steps % 3 == 0:
 
-                        print("<-------------Saving Variables-------------->")
+                    #     print("<-------------Saving Variables-------------->")
 
-                        # training_loss = train_loss / train_steps
+                    #     # training_loss = train_loss / train_steps
 
-                        predictions = sess.run(model_output_tensor,
-                                               feed_dict=feed_dict)
+                    #     predictions = sess.run(model_output_tensor,
+                    #                            feed_dict=feed_dict)
 
-                        saving_variables(images,
-                                         predictions,
-                                         train_loss,
-                                         logger)
+                    #     saving_variables(images,
+                    #                      predictions,
+                    #                      train_loss,
+                    #                      logger)
 
                 except tf.errors.OutOfRangeError:
 
                     break
+
+            predictions = sess.run(model_output_tensor,
+                                   feed_dict=feed_dict)
+
+            saving_variables(images,
+                             predictions,
+                             train_loss,
+                             logger)
 
             print("Training Epoch: {}, Mean Square Error: {:.3f}".format(i, train_loss))
             logger.log_scalar('training_loss', train_loss, i)
@@ -430,11 +437,11 @@ def phase_unwrapping_tensorflow_model(_):
                                      model.y_placeholder: annotations}
 
                         validation_loss += sess.run(loss, feed_dict=feed_dict)
-                        
+
                     except tf.errors.OutOfRangeError:
-    
+
                         break
-                    
+
             print("Validation Epoch: {}, Mean Square Error: {:.3f}".format(i, validation_loss))
             logger.log_scalar('training_loss', train_loss, i)
 
