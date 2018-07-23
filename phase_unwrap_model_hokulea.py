@@ -249,7 +249,7 @@ class Modified_Unet(object):
         return final_layer
 
     def unet_transpose_conv(self):
-        conv_1 = slim.repeat(self.x_placeholder, 2, slim.conv2d, 64, [3, 3],
+        conv_1 = slim.repeat(self.x_placeholder, 2, slim.conv2d, 32, [3, 3],
                              scope='conv1')
         pool_1 = slim.max_pool2d(conv_1, [2, 2], scope='pool1')
 
@@ -491,7 +491,7 @@ if __name__ == '__main__':
     parser.add_argument('--learning_rate', type=float, default=1e-4,
                         help='Initial learning rate.')
 
-    parser.add_argument('--batch_size', type=int, default=8,
+    parser.add_argument('--batch_size', type=int, default=11,
                         help='Training set batch size.')
 
     parser.add_argument('--epochs', type=int, default=2,
