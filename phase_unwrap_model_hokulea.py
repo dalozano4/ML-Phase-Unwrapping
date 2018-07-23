@@ -1,7 +1,8 @@
 import sys
+import time
 import argparse
 import numpy as np
-from io import StringIO, BytesIO
+from io import BytesIO
 import matplotlib.pyplot as plt
 import tensorflow as tf
 
@@ -382,6 +383,8 @@ def phase_unwrapping_tensorflow_model(_):
 
                 try:
 
+                    start_time = time.time()
+
                     train_steps += 1
 
                     images, annotations = dataset.get_next_training_element(sess)
@@ -409,10 +412,13 @@ def phase_unwrapping_tensorflow_model(_):
                     #                      train_loss,
                     #                      logger)
 
+                    print("Running time = " + str(time.time() - start_time))
+
                 except tf.errors.OutOfRangeError:
 
                     break
 
+            print("<-------------Saving Variables-------------->")
             predictions = sess.run(model_output_tensor,
                                    feed_dict=feed_dict)
 
@@ -436,17 +442,27 @@ def phase_unwrapping_tensorflow_model(_):
                         feed_dict = {model.x_placeholder: images,
                                      model.y_placeholder: annotations}
 
-                        validation_loss += sess.run(loss, feed_dict=feed_dict)
+                        validation_loss = sess.run(loss, feed_dict=feed_dict)
 
                     except tf.errors.OutOfRangeError:
 
                         break
 
+            print("<-------------Saving Variables-------------->")
+
+            predictions = sess.run(model_output_tensor,
+                                   feed_dict=feed_dict)
+            saving_variables(images,
+                             predictions,
+                             validation_loss,
+                             logger)
+
             print("Validation Epoch: {}, Mean Square Error: {:.3f}".format(i, validation_loss))
-            logger.log_scalar('training_loss', train_loss, i)
+            logger.log_scalar('validation_loss', validation_loss, i)
 
         sv.stop()
         sess.close()
+
 
 if __name__ == '__main__':
 
@@ -475,7 +491,7 @@ if __name__ == '__main__':
     parser.add_argument('--learning_rate', type=float, default=1e-4,
                         help='Initial learning rate.')
 
-    parser.add_argument('--batch_size', type=int, default=1,
+    parser.add_argument('--batch_size', type=int, default=8,
                         help='Training set batch size.')
 
     parser.add_argument('--epochs', type=int, default=2,
