@@ -251,52 +251,52 @@ class Modified_Unet(object):
     def unet_transpose_conv(self):
 
         # changed to 32 from 64
-        conv_1 = slim.repeat(self.x_placeholder, 2, slim.conv2d, 18, [3, 3],
+        conv_1 = slim.repeat(self.x_placeholder, 2, slim.conv2d, 16, [3, 3],
                              scope='conv1')
         pool_1 = slim.max_pool2d(conv_1, [2, 2], scope='pool1')
 
-        conv_2 = slim.repeat(pool_1, 2, slim.conv2d, 128, [3, 3],
+        conv_2 = slim.repeat(pool_1, 2, slim.conv2d, 32, [3, 3],
                              scope='conv2')
         pool_2 = slim.max_pool2d(conv_2, [2, 2], scope='pool2')
 
-        conv_3 = slim.repeat(pool_2, 2, slim.conv2d, 256, [3, 3],
+        conv_3 = slim.repeat(pool_2, 2, slim.conv2d, 64, [3, 3],
                              scope='conv3')
         pool_3 = slim.max_pool2d(conv_3, [2, 2], scope='pool3')
 
-        conv_4 = slim.repeat(pool_3, 2, slim.conv2d, 512, [3, 3],
+        conv_4 = slim.repeat(pool_3, 2, slim.conv2d, 128, [3, 3],
                              scope='conv4')
         pool_4 = slim.max_pool2d(conv_4, [2, 2], scope='pool4')
 
-        conv_5 = slim.repeat(pool_4, 2, slim.conv2d, 1024, [3, 3],
+        conv_5 = slim.repeat(pool_4, 2, slim.conv2d, 256, [3, 3],
                              scope='conv5')
 
-        deconv_4 = slim.convolution2d_transpose(conv_5, 512, [2, 2], [2, 2],
+        deconv_4 = slim.convolution2d_transpose(conv_5, 128, [2, 2], [2, 2],
                                                 padding='VALID',
                                                 scope='tr_conv4')
 
         deconv_4 = tf.concat([deconv_4, conv_4], axis=3)
-        conv_4 = slim.repeat(deconv_4, 2, slim.conv2d, 512, [3, 3],
+        conv_4 = slim.repeat(deconv_4, 2, slim.conv2d, 128, [3, 3],
                              scope='uconv4')
 
-        deconv_3 = slim.convolution2d_transpose(conv_4, 256, [2, 2], [2, 2],
+        deconv_3 = slim.convolution2d_transpose(conv_4, 64, [2, 2], [2, 2],
                                                 padding='VALID',
                                                 scope='tr_conv3')
         deconv_3 = tf.concat([deconv_3, conv_3], axis=3)
-        conv_3 = slim.repeat(deconv_3, 2, slim.conv2d, 256, [3, 3],
+        conv_3 = slim.repeat(deconv_3, 2, slim.conv2d, 64, [3, 3],
                              scope='uconv3')
 
-        deconv_2 = slim.convolution2d_transpose(conv_3, 128, [2, 2], [2, 2],
+        deconv_2 = slim.convolution2d_transpose(conv_3, 32, [2, 2], [2, 2],
                                                 padding='VALID',
                                                 scope='tr_conv2')
         deconv_2 = tf.concat([deconv_2, conv_2], axis=3)
-        conv_2 = slim.repeat(deconv_2, 2, slim.conv2d, 128, [3, 3],
+        conv_2 = slim.repeat(deconv_2, 2, slim.conv2d, 32, [3, 3],
                              scope='uconv2')
 
-        deconv_1 = slim.convolution2d_transpose(conv_2, 18, [2, 2], [2, 2],
+        deconv_1 = slim.convolution2d_transpose(conv_2, 16, [2, 2], [2, 2],
                                                 padding='VALID',
                                                 scope='tr_conv1')
         deconv_1 = tf.concat([deconv_1, conv_1], axis=3)
-        conv_1 = slim.repeat(deconv_1, 2, slim.conv2d, 18, [3, 3],
+        conv_1 = slim.repeat(deconv_1, 2, slim.conv2d, 16, [3, 3],
                              scope='uconv1')
         final_layer = slim.conv2d(conv_1, 3, [1, 1], scope='uconv1/uconv1_3')
 
