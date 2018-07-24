@@ -250,6 +250,8 @@ class Modified_Unet(object):
 
     def unet_transpose_conv(self):
 
+        power_basis = 4
+
         # changed to 32 from 64
         conv_1 = slim.repeat(self.x_placeholder, 2, slim.conv2d, 16, [3, 3],
                              scope='conv1')
@@ -493,7 +495,7 @@ if __name__ == '__main__':
     parser.add_argument('--learning_rate', type=float, default=1e-4,
                         help='Initial learning rate.')
 
-    parser.add_argument('--batch_size', type=int, default=11,
+    parser.add_argument('--batch_size', type=int, default=48,
                         help='Training set batch size.')
 
     parser.add_argument('--epochs', type=int, default=2,
