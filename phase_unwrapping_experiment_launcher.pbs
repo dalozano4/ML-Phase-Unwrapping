@@ -1,6 +1,6 @@
 #!/bin/bash
 ## Walltime in hours:minutes:seconds
-#PBS -l walltime=48:00:00
+#PBS -l walltime=24:00:00
 ## -o specifies output file
 #PBS -o ~/log/queue_exhaustion.out
 ## -e specifies error file
