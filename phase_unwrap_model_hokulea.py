@@ -249,6 +249,8 @@ class Modified_Unet(object):
         return final_layer
 
     def unet_transpose_conv(self):
+
+        # changed to 32 from 64
         conv_1 = slim.repeat(self.x_placeholder, 2, slim.conv2d, 32, [3, 3],
                              scope='conv1')
         pool_1 = slim.max_pool2d(conv_1, [2, 2], scope='pool1')
@@ -290,11 +292,11 @@ class Modified_Unet(object):
         conv_2 = slim.repeat(deconv_2, 2, slim.conv2d, 128, [3, 3],
                              scope='uconv2')
 
-        deconv_1 = slim.convolution2d_transpose(conv_2, 64, [2, 2], [2, 2],
+        deconv_1 = slim.convolution2d_transpose(conv_2, 32, [2, 2], [2, 2],
                                                 padding='VALID',
                                                 scope='tr_conv1')
         deconv_1 = tf.concat([deconv_1, conv_1], axis=3)
-        conv_1 = slim.repeat(deconv_1, 2, slim.conv2d, 64, [3, 3],
+        conv_1 = slim.repeat(deconv_1, 2, slim.conv2d, 32, [3, 3],
                              scope='uconv1')
         final_layer = slim.conv2d(conv_1, 3, [1, 1], scope='uconv1/uconv1_3')
 
