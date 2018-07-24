@@ -498,7 +498,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=48,
                         help='Training set batch size.')
 
-    parser.add_argument('--epochs', type=int, default=2,
+    parser.add_argument('--epochs', type=int, default=10000000,
                         help='Number of epochs to run trainer.')
 
     FLAGS, unparsed = parser.parse_known_args()
