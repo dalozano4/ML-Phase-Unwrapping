@@ -374,6 +374,7 @@ def phase_unwrapping_tensorflow_model(_):
     
 #    with sv.managed_session() as sess:
     with tf.Session() as sess:
+
         for i in range(FLAGS.epochs):
             
             sess.run(init_op)
@@ -417,7 +418,6 @@ def phase_unwrapping_tensorflow_model(_):
             logger.log_images('train_predicted_image', predictions[0], i)
 
             logger.log_scalar('train_loss', train_loss, i)
-
 
             dataset.initialize_validation_iterator(sess)
             print("<----------------Validation_output----------------->")

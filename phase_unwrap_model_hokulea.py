@@ -30,27 +30,56 @@ class Logger(object):
                                                      simple_value=value)])
         self.writer.add_summary(summary, step)
 
-    def log_images(self, tag, images, step):
-        """Logs a list of images."""
+    def log_images(self, tag, img, step):
+        """Original version Logs a list of images."""
+        """Updated version logs one image"""
+
+        # Changes that were made were to comment the loop over a list of
+        # images.
+        # Change the input from images to img since we are passing only one
+        # image everytime the function is called
 
         im_summaries = []
-        for nr, img in enumerate(images):
-            # Write the image to a string
-            # s = StringIO()
-            s = BytesIO()
-            plt.imsave(s, img, format='png')
 
-            # Create an Image object
-            img_sum = tf.Summary.Image(encoded_image_string=s.getvalue(),
-                                       height=img.shape[0],
-                                       width=img.shape[1])
-            # Create a Summary value
-            im_summaries.append(tf.Summary.Value(tag='%s/%d' % (tag, nr),
-                                                 image=img_sum))
+        s = BytesIO()
+
+        plt.imsave(s, img, format='png')
+
+        # Create an Image object
+        img_sum = tf.Summary.Image(encoded_image_string=s.getvalue(),
+                                   height=img.shape[0],
+                                   width=img.shape[1])
+
+        # Create a Summary value
+        im_summaries.append(tf.Summary.Value(tag='%s/%d' % (tag, 0),
+                                             image=img_sum))
 
         # Create and write Summary
         summary = tf.Summary(value=im_summaries)
         self.writer.add_summary(summary, step)
+
+    ###########################################################################
+    # def log_images(self, tag, images, step):
+    #     """Logs a list of images."""
+    #     im_summaries = []
+    #     for nr, img in enumerate(images):
+    #         # Write the image to a string
+    #         # s = StringIO()
+    #         s = BytesIO()
+    #         plt.imsave(s, img, format='png')
+
+    #         # Create an Image object
+    #         img_sum = tf.Summary.Image(encoded_image_string=s.getvalue(),
+    #                                    height=img.shape[0],
+    #                                    width=img.shape[1])
+    #         # Create a Summary value
+    #         im_summaries.append(tf.Summary.Value(tag='%s/%d' % (tag, nr),
+    #                                              image=img_sum))
+
+    #     # Create and write Summary
+    #     summary = tf.Summary(value=im_summaries)
+    #     self.writer.add_summary(summary, step)
+        ######################################################################
 
     def log_histogram(self, tag, values, step, bins=1000):
         """Logs the histogram of a list/vector of values."""
@@ -250,8 +279,6 @@ class Modified_Unet(object):
 
     def unet_transpose_conv(self):
 
-        power_basis = 4
-
         # changed to 32 from 64
         conv_1 = slim.repeat(self.x_placeholder, 2, slim.conv2d, 16, [3, 3],
                              scope='conv1')
@@ -300,7 +327,89 @@ class Modified_Unet(object):
         deconv_1 = tf.concat([deconv_1, conv_1], axis=3)
         conv_1 = slim.repeat(deconv_1, 2, slim.conv2d, 16, [3, 3],
                              scope='uconv1')
-        final_layer = slim.conv2d(conv_1, 3, [1, 1], scope='uconv1/uconv1_3')
+
+        final_conv_layer = slim.conv2d(conv_1, 3, [1, 1],
+                                       scope='uconv1/uconv1_3')
+
+        final_layer = tf.nn.softmax(final_conv_layer)
+
+        for variable in slim.get_model_variables():
+            self.log_weights_bias(variable)
+
+        return final_layer
+
+    def unet_inference(self):
+
+        power_basis = FLAGS.power_basis
+
+        # changed to 32 from 64
+        conv_1 = slim.repeat(self.x_placeholder,
+                             2,
+                             slim.conv2d,
+                             2**power_basis,
+                             [3, 3],
+                             scope='conv1')
+        pool_1 = slim.max_pool2d(conv_1, [2, 2], scope='pool1')
+
+        conv_2 = slim.repeat(pool_1, 2, slim.conv2d, 2 ** (power_basis + 1),
+                             [3, 3],
+                             scope='conv2')
+        pool_2 = slim.max_pool2d(conv_2, [2, 2], scope='pool2')
+
+        conv_3 = slim.repeat(pool_2, 2, slim.conv2d, 2 ** (power_basis + 2),
+                             [3, 3],
+                             scope='conv3')
+        pool_3 = slim.max_pool2d(conv_3, [2, 2], scope='pool3')
+
+        conv_4 = slim.repeat(pool_3, 2, slim.conv2d, 2 ** (power_basis + 3),
+                             [3, 3],
+                             scope='conv4')
+        pool_4 = slim.max_pool2d(conv_4, [2, 2], scope='pool4')
+
+        conv_5 = slim.repeat(pool_4, 2, slim.conv2d, 2 ** (power_basis + 4),
+                             [3, 3],
+                             scope='conv5')
+
+        deconv_4 = slim.convolution2d_transpose(conv_5, 2 ** (power_basis + 3),
+                                                [2, 2], [2, 2],
+                                                padding='VALID',
+                                                scope='tr_conv4')
+
+        deconv_4 = tf.concat([deconv_4, conv_4], axis=3)
+        conv_4 = slim.repeat(deconv_4, 2, slim.conv2d, 2 ** (power_basis + 3),
+                             [3, 3],
+                             scope='uconv4')
+
+        deconv_3 = slim.convolution2d_transpose(conv_4, 2 ** (power_basis + 2),
+                                                [2, 2], [2, 2],
+                                                padding='VALID',
+                                                scope='tr_conv3')
+        deconv_3 = tf.concat([deconv_3, conv_3], axis=3)
+        conv_3 = slim.repeat(deconv_3, 2, slim.conv2d, 2 ** (power_basis + 2),
+                             [3, 3],
+                             scope='uconv3')
+
+        deconv_2 = slim.convolution2d_transpose(conv_3, 2 ** (power_basis + 1),
+                                                [2, 2], [2, 2],
+                                                padding='VALID',
+                                                scope='tr_conv2')
+        deconv_2 = tf.concat([deconv_2, conv_2], axis=3)
+        conv_2 = slim.repeat(deconv_2, 2, slim.conv2d, 2 ** (power_basis + 1),
+                             [3, 3],
+                             scope='uconv2')
+
+        deconv_1 = slim.convolution2d_transpose(conv_2, 2 ** (power_basis),
+                                                [2, 2], [2, 2],
+                                                padding='VALID',
+                                                scope='tr_conv1')
+        deconv_1 = tf.concat([deconv_1, conv_1], axis=3)
+        conv_1 = slim.repeat(deconv_1, 2, slim.conv2d, 16, [3, 3],
+                             scope='uconv1')
+
+        final_conv_layer = slim.conv2d(conv_1, 3, [1, 1],
+                                       scope='uconv1/uconv1_3')
+
+        final_layer = tf.nn.softmax(final_conv_layer)
 
         for variable in slim.get_model_variables():
             self.log_weights_bias(variable)
@@ -326,23 +435,13 @@ class Modified_Unet(object):
                 tf.summary.histogram('histogram', variable)
 
 
-def saving_variables(images, predictions, training_loss, logger):
-
-    logger.log_images('input_image', images, saving_variables.counter)
-
-    logger.log_images('predicted_image', predictions, saving_variables.counter)
-
-    logger.log_scalar('step_training_loss', training_loss,
-                      saving_variables.counter)
-
-    saving_variables.counter += 1
-
 
 def phase_unwrapping_tensorflow_model(_):
     # Clear the log directory, if it exists.
     if tf.gfile.Exists(FLAGS.log_dir):
 
         tf.gfile.DeleteRecursively(FLAGS.log_dir)
+
     # Create a log directory, if it exists.
     tf.gfile.MakeDirs(FLAGS.log_dir)
 
@@ -351,14 +450,15 @@ def phase_unwrapping_tensorflow_model(_):
 
     model = Modified_Unet()
 
-    dataset = Dataset_TFRecords(path_tfrecords_train = FLAGS.path_tfrecords_train, 
-                                path_tfrecords_valid = FLAGS.path_tfrecords_valid,  
+    dataset = Dataset_TFRecords(path_tfrecords_train=FLAGS.path_tfrecords_train,
+                                path_tfrecords_valid=FLAGS.path_tfrecords_valid,
                                 batch_size = FLAGS.batch_size)
 
     logger = Logger(FLAGS.log_dir)
 
     # Now, we construct a loss function.
-    model_output_tensor = model.unet_transpose_conv()
+    # model_output_tensor = model.unet_transpose_conv()
+    model_output_tensor = model.unet_inference()
 #    model_output_tensor = model.unet_resize_conv()
 
     mean_squared_error = tf.squared_difference(model_output_tensor,
@@ -368,19 +468,19 @@ def phase_unwrapping_tensorflow_model(_):
     # Next, add an optimizet to the graph.
     optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate).minimize(loss)
 
-    tf.summary.merge_all()
+    summary = tf.summary.merge_all()
 
     sv = tf.train.Supervisor(logdir=FLAGS.log_dir, save_summaries_secs=240.0)
 
     with sv.managed_session() as sess:
 
-        saving_variables.counter = 0
-
         for i in range(FLAGS.epochs):
+
+            print("<------------Epoch" + str(i) + "------------->")
 
             train_steps = 0
             dataset.initialize_training_iterator(sess)
-            print("<------------Training_output------------->")
+            print("<------------Training Output------------->")
 
             # Train for one epoch.
             while True:
@@ -402,40 +502,30 @@ def phase_unwrapping_tensorflow_model(_):
 
                     sess.run(optimizer, feed_dict=feed_dict)
 
-                    # if train_steps % 3 == 0:
-
-                    #     print("<-------------Saving Variables-------------->")
-
-                    #     # training_loss = train_loss / train_steps
-
-                    #     predictions = sess.run(model_output_tensor,
-                    #                            feed_dict=feed_dict)
-
-                    #     saving_variables(images,
-                    #                      predictions,
-                    #                      train_loss,
-                    #                      logger)
-
                     print("Running time = " + str(time.time() - start_time))
 
                 except tf.errors.OutOfRangeError:
 
                     break
 
-            print("<-------------Saving Variables-------------->")
-            predictions = sess.run(model_output_tensor,
-                                   feed_dict=feed_dict)
+            print("<-------------Saving Training Data-------------->")
 
-            saving_variables(images,
-                             predictions,
-                             train_loss,
-                             logger)
+            predictions = sess.run(model_output_tensor, feed_dict=feed_dict)
+
+            logger.log_images('train_input_image', images[0], i)
+
+            logger.log_images('train_annotation_image', annotations[0], i)
+
+            logger.log_images('train_predicted_image', predictions[0], i)
+
+            logger.log_scalar('train_loss', train_loss, i)
 
             print("Training Epoch: {}, Mean Square Error: {:.3f}".format(i, train_loss))
+
             logger.log_scalar('training_loss', train_loss, i)
 
             dataset.initialize_validation_iterator(sess)
-            print("<------------Validation_output------------->")
+            print("<------------Validation Output------------->")
             while True:
 
                     try:
@@ -452,17 +542,24 @@ def phase_unwrapping_tensorflow_model(_):
 
                         break
 
-            print("<-------------Saving Variables-------------->")
+            print("<-------------Saving Validation Data-------------->")
+
+            print("Validation Epoch: {}, Mean Square Error: {:.3f}".format(i, validation_loss))
 
             predictions = sess.run(model_output_tensor,
                                    feed_dict=feed_dict)
-            saving_variables(images,
-                             predictions,
-                             validation_loss,
-                             logger)
 
-            print("Validation Epoch: {}, Mean Square Error: {:.3f}".format(i, validation_loss))
+            logger.log_images('validation_input_image', images[0], i)
+
+            logger.log_images('validation_annotation_image', annotations[0], i)
+
+            logger.log_images('validation_predicted_image', predictions[0], i)
+
             logger.log_scalar('validation_loss', validation_loss, i)
+
+            summary_str = sess.run(summary, feed_dict=feed_dict)
+
+            logger.writer.add_summary(summary_str, i)
 
         sv.stop()
         sess.close()
@@ -476,30 +573,54 @@ if __name__ == '__main__':
     # Establish default arguements.
 
     # These flags are often, but not always, overwritten by the launcher.
+    # parser.add_argument('--path_tfrecords_train', type=str,
+    #                     default='/gpfs/projects/ml/data/phase_unwrapping/train_img3200.tfrecords',
+    #                     help='Location of the training data set which is in .tfrecords format.')
+
+    # parser.add_argument('--path_tfrecords_valid', type=str,
+    #                     default='/gpfs/projects/ml/data/phase_unwrapping/validation_img800.tfrecords',
+    #                     help='Location of the test data set which is in .tfrecords format.')
+
+    # parser.add_argument('--log_dir', type=str,
+    #                     default='/gpfs/projects/ml/phase_unwrapping_dnn/logs',
+    #                     help='Summaries log directory.')
+
+
+    # parser.add_argument('--batch_size', type=int, default=48,
+    #                     help='Training set batch size.')
+
+    # parser.add_argument('--epochs', type=int, default=10000000,
+    #                     help='Number of epochs to run trainer.')
+
+    # These flags are often, but not always, overwritten by the launcher.
     parser.add_argument('--path_tfrecords_train', type=str,
-                        default='/gpfs/projects/ml/data/phase_unwrapping/train_img3200.tfrecords',
+                        default='C:\\Users\\Justin Fletcher\\Research\\data\\phase_unwrapping\\train_img1.tfrecords',
                         help='Location of the training data set which is in .tfrecords format.')
 
     parser.add_argument('--path_tfrecords_valid', type=str,
-                        default='/gpfs/projects/ml/data/phase_unwrapping/validation_img800.tfrecords',
+                        default='C:\\Users\\Justin Fletcher\\Research\\data\\phase_unwrapping\\validation_img1.tfrecords',
                         help='Location of the test data set which is in .tfrecords format.')
 
     parser.add_argument('--log_dir', type=str,
-                        default='/gpfs/projects/ml/phase_unwrapping_dnn/logs',
+                        default='C:\\Users\\Justin Fletcher\\Research\\data\\phase_unwrapping\\logs\\',
                         help='Summaries log directory.')
 
+    parser.add_argument('--batch_size', type=int, default=1,
+                        help='Training set batch size.')
+
+    parser.add_argument('--epochs', type=int, default=10000000,
+                        help='Number of epochs to run trainer.')
+
     parser.add_argument('--ckpt_filename', type=str,
-                        default='model-20180723.ckpt',
+                        default='model-20180726.ckpt',
                         help='Summaries log directory.')
 
     parser.add_argument('--learning_rate', type=float, default=1e-4,
                         help='Initial learning rate.')
 
-    parser.add_argument('--batch_size', type=int, default=48,
-                        help='Training set batch size.')
+    parser.add_argument('--power_basis', type=float, default=4,
+                        help='Power basis controlling unet expansion.')
 
-    parser.add_argument('--epochs', type=int, default=10000000,
-                        help='Number of epochs to run trainer.')
 
     FLAGS, unparsed = parser.parse_known_args()
 
