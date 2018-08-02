@@ -115,7 +115,46 @@ class Logger(object):
         self.writer.flush()
 
 
-def _read_and_decode(serialized):
+def _read_and_decode_uint8(serialized):
+    # Define a dict with the data-names and types we expect to
+    # find in the TFRecords file.
+    features = \
+        {
+            'image_raw': tf.FixedLenFeature([], tf.string),
+            'annotation_raw': tf.FixedLenFeature([], tf.string)
+        }
+
+    features = tf.parse_single_example(serialized=serialized,
+                                       features=features)
+
+    # Decode the raw bytes so it becomes a tensor with type.
+    input_image = tf.decode_raw(features['image_raw'], tf.uint8)
+    target_image = tf.decode_raw(features['annotation_raw'], tf.uint8)
+
+    # Creating a variable that will normalize the input image
+    norm = tf.constant(255, dtype=tf.float32)
+
+    # When it is raw the data is a vector and we need to reshape it.
+    input_image = tf.reshape(input_image, [512, 512, 3])
+    input_image = tf.image.rgb_to_grayscale(input_image)
+    # The type is now uint8 but we need it to be float.
+    input_image = tf.cast(input_image, tf.float32)
+
+    # Normalize the data before feeding it through. Optional.
+    input_image = tf.divide(input_image, norm)
+    input_image = tf.subtract(tf.multiply(input_image, 2), 1)
+
+    # Repeat this process for the target segmentation.
+    target_image = tf.reshape(target_image, [512, 512, 3])
+    target_image = tf.image.rgb_to_grayscale(target_image)
+    target_image = tf.cast(target_image, tf.float32)
+    target_image = tf.divide(target_image, norm)
+    target_image = tf.subtract(tf.multiply(target_image, 2), 1)
+    # The image and label are now correct TensorFlow types.
+    return input_image, target_image
+
+
+def _read_and_decode_float32(serialized):
     # Wtih tf.FixedLenFeature I kept getting a
     # ValueError: Cannot reshape a tensor with 1 elements.
     # Instead tf.FixedLenSequenceFeature works not sure why ???
@@ -155,8 +194,8 @@ def _read_and_decode(serialized):
     # Do the same for the Target image
     target_matrix = features['unwrapped']
     target_matrix = tf.reshape(target_matrix, [512, 512, 1])
-    target_matrix_min = tf.constant(-278.519782, dtype=tf.float32)
-    target_matrix_max = tf.constant(268.472288, dtype=tf.float32)
+    target_matrix_min = tf.constant(-278.51978182, dtype=tf.float32)
+    target_matrix_max = tf.constant(268.47228778, dtype=tf.float32)
     target_matrix_range = tf.subtract(target_matrix_max, target_matrix_min)
     target_matrix = tf.divide(tf.subtract(target_matrix, target_matrix_min), target_matrix_range)
     target_matrix = tf.subtract(tf.multiply(target_matrix, 2), 1)
@@ -167,11 +206,20 @@ def _read_and_decode(serialized):
 
 class DatasetTFRecords(object):
 
-    def __init__(self, path_tfrecords_train, path_tfrecords_valid, batch_size):
+    def __init__(self, path_tfrecords_train, path_tfrecords_valid, data_type, batch_size):
+
         train_dataset = tf.data.TFRecordDataset(filenames=path_tfrecords_train)
         # Parse the serialized data in the TFRecords files.
-        # This returns TensorFlow tensors for the image and labels.
-        train_dataset = train_dataset.map(_read_and_decode)
+        # This returns TensorFlow tensors for the input image and target image.
+        if data_type == 'float32':
+            train_dataset = train_dataset.map(_read_and_decode_float32)
+
+        elif data_type == 'uint8':
+            train_dataset = train_dataset.map(_read_and_decode_uint8)
+
+        else:
+            print('data_type has to be either float32 or uint8')
+
         # String together various operations to apply to the data
         train_dataset = train_dataset.shuffle(1000)
         train_dataset = train_dataset.batch(batch_size)
@@ -181,7 +229,13 @@ class DatasetTFRecords(object):
         self._train_init_op = self._train_iterator.make_initializer(train_dataset)
 
         validation_dataset = tf.data.TFRecordDataset(filenames=path_tfrecords_valid)
-        validation_dataset = validation_dataset.map(_read_and_decode)
+
+        if data_type == 'float32':
+            validation_dataset = validation_dataset.map(_read_and_decode_float32)
+
+        elif data_type == 'uint8':
+            validation_dataset = validation_dataset.map(_read_and_decode_uint8)
+
         validation_dataset = validation_dataset.shuffle(1000)
         validation_dataset = validation_dataset.batch(batch_size)
         self._validation_iterator = validation_dataset.make_one_shot_iterator()
@@ -376,6 +430,7 @@ def phase_unwrapping_tensorflow_model(_):
 
     dataset = DatasetTFRecords(path_tfrecords_train=FLAGS.path_tfrecords_train,
                                path_tfrecords_valid=FLAGS.path_tfrecords_valid,
+                               data_type=FLAGS.data_type,
                                batch_size=FLAGS.batch_size)
 
     logger = Logger(FLAGS.log_dir)
@@ -475,9 +530,13 @@ def phase_unwrapping_tensorflow_model(_):
             print("Training Epoch: {}, Discriminator_Loss: {:.8f}, Generator_Loss: {:.8f}"
                   .format(i, train_dis_loss, train_gen_loss))
 
+            logger.log_scalar('train_discriminator_loss', train_dis_loss, i)
+
+            logger.log_scalar('train_generator_loss', train_gen_loss, i)
+
             if i % FLAGS.save_count == 0:
 
-                print("<------------- Saving Training Variables -------------->")
+                print("<------------- Saving Training Images -------------->")
 
                 predictions = sess.run(gen_output_tensor, feed_dict=feed_dict)
 
@@ -492,10 +551,6 @@ def phase_unwrapping_tensorflow_model(_):
                 logger.log_image('train_target_matrix', norm_target_matrix, i)
 
                 logger.log_image('train_predicted_image', norm_predictions, i)
-
-                logger.log_scalar('train_discriminator_loss', train_dis_loss, i)
-
-                logger.log_scalar('train_generator_loss', train_gen_loss, i)
 
             print("<---------------- Validation Session ----------------->")
 
@@ -517,14 +572,18 @@ def phase_unwrapping_tensorflow_model(_):
 
                     break
 
-            print("<---------------- Validation Loss----------------->")
+            print("<---------------- Validation Loss ----------------->")
 
             print("Training Epoch: {}, Discriminator_Loss: {:.8f}, Generator_Loss: {:.8f}"
                   .format(i, valid_dis_loss, valid_gen_loss))
 
+            logger.log_scalar('valid_discriminator_loss', valid_dis_loss, i)
+
+            logger.log_scalar('valid_generator_loss', valid_gen_loss, i)
+
             if i % FLAGS.save_count == 0:
 
-                print("<-------------Saving Validation Variables-------------->")
+                print("<------------- Saving Validation Images -------------->")
 
                 predictions = sess.run(gen_output_tensor, feed_dict=feed_dict)
 
@@ -538,11 +597,7 @@ def phase_unwrapping_tensorflow_model(_):
 
                 logger.log_image('valid_predicted_image', norm_predictions, i)
 
-                logger.log_scalar('valid_discriminator_loss', valid_dis_loss, i)
-
-                logger.log_scalar('valid_generator_loss', valid_gen_loss, i)
-
-            print("<-------------Saving Weights and Bias-------------->")
+            print("<------------- Saving Weights and Bias -------------->")
 
             summary_str = sess.run(summary, feed_dict=feed_dict)
             logger.writer.add_summary(summary_str, i)
@@ -570,22 +625,26 @@ if __name__ == '__main__':
                         default='C:\\Users\\Diego Lozano\\AFRL_Project\\templog',
                         help='Summaries log directory.')
 
-    parser.add_argument('--save_count', type=int, default=100,
-                        help='Initial learning rate.')
+    parser.add_argument('--data_type', type=str,
+                        default='float32',
+                        help='Summaries log directory.')
+
+    parser.add_argument('--save_count', type=int, default=5,
+                        help='Save variables at every set count.')
 
     parser.add_argument('--learning_rate', type=float, default=2e-4,
                         help='Initial learning rate.')
 
     parser.add_argument('--beta1', type=float, default=0.5,
-                        help='Initial learning rate.')
+                        help='beta1 value for Adam Optimizer as given in cGan optimizers.')
 
     parser.add_argument('--L1_lambda', type=float, default=100,
-                        help='Initial learning rate.')
+                        help=' Weight that will be multiplied by the L1_loss in the generator total loss')
 
     parser.add_argument('--batch_size', type=int, default=2,
                         help='Training set batch size.')
 
-    parser.add_argument('--epochs', type=int, default=1000,
+    parser.add_argument('--epochs', type=int, default=50,
                         help='Number of epochs to run trainer.')
 
     FLAGS, unparsed = parser.parse_known_args()
