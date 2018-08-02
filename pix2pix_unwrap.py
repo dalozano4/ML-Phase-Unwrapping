@@ -424,8 +424,8 @@ def phase_unwrapping_tensorflow_model(_):
     tf.reset_default_graph()
 
     model = Pix2Pix(image_size=512,
-                    generator_filters=16,
-                    discriminator_filters=16,
+                    generator_filters=64,
+                    discriminator_filters=64,
                     num_channels=1)
 
     dataset = DatasetTFRecords(path_tfrecords_train=FLAGS.path_tfrecords_train,
@@ -503,7 +503,12 @@ def phase_unwrapping_tensorflow_model(_):
 
                     start_time = time.time()
 
+
+                    data_time = time.time()
+
                     input_matrix, target_matrix = dataset.get_next_training_element(sess)
+
+                    print("Dataset time = " + str(time.time() - data_time))
 
                     # Make a dict to load the batch onto the placeholders.
                     feed_dict = {model.x_placeholder: input_matrix,
@@ -612,21 +617,21 @@ if __name__ == '__main__':
 
     # Establish default arguements.
 
-    # These flags are often, but not always, overwritten by the launcher.
-    parser.add_argument('--path_tfrecords_train', type=str,
-                        default='C:\\Users\\Diego Lozano\\AFRL_Project\\train_data\\HDF5_train.tfrecords',
-                        help='Location of the training data set which is in .tfrecords format.')
+    # # These flags are often, but not always, overwritten by the launcher.
+    # parser.add_argument('--path_tfrecords_train', type=str,
+    #                     default='C:\\Users\\Diego Lozano\\AFRL_Project\\train_data\\HDF5_train.tfrecords',
+    #                     help='Location of the training data set which is in .tfrecords format.')
 
-    parser.add_argument('--path_tfrecords_valid', type=str,
-                        default='C:\\Users\\Diego Lozano\\AFRL_Project\\validation_data\\HDF5_validation.tfrecords',
-                        help='Location of the test data set which is in .tfrecords format.')
+    # parser.add_argument('--path_tfrecords_valid', type=str,
+    #                     default='C:\\Users\\Diego Lozano\\AFRL_Project\\validation_data\\HDF5_validation.tfrecords',
+    #                     help='Location of the test data set which is in .tfrecords format.')
 
-    parser.add_argument('--log_dir', type=str,
-                        default='C:\\Users\\Diego Lozano\\AFRL_Project\\templog',
-                        help='Summaries log directory.')
+    # parser.add_argument('--log_dir', type=str,
+    #                     default='C:\\Users\\Diego Lozano\\AFRL_Project\\templog',
+    #                     help='Summaries log directory.')
 
     parser.add_argument('--data_type', type=str,
-                        default='float32',
+                        default='uint8',
                         help='Summaries log directory.')
 
     parser.add_argument('--save_count', type=int, default=5,
@@ -641,11 +646,24 @@ if __name__ == '__main__':
     parser.add_argument('--L1_lambda', type=float, default=100,
                         help=' Weight that will be multiplied by the L1_loss in the generator total loss')
 
-    parser.add_argument('--batch_size', type=int, default=2,
+    parser.add_argument('--batch_size', type=int, default=8,
                         help='Training set batch size.')
 
-    parser.add_argument('--epochs', type=int, default=50,
+    parser.add_argument('--epochs', type=int, default=1,
                         help='Number of epochs to run trainer.')
+
+    parser.add_argument('--path_tfrecords_train', type=str,
+                        default='C:\\Users\\Justin Fletcher\\Research\\data\\phase_unwrapping\\train_4000img.tfrecords',
+                        help='Location of the training data set which is in .tfrecords format.')
+
+    parser.add_argument('--path_tfrecords_valid', type=str,
+                        default='C:\\Users\\Justin Fletcher\\Research\\data\\phase_unwrapping\\validation_1000img.tfrecords',
+                        help='Location of the test data set which is in .tfrecords format.')
+
+    parser.add_argument('--log_dir', type=str,
+                        default='C:\\Users\\Justin Fletcher\\Research\\data\\phase_unwrapping\\logs\\',
+                        help='Summaries log directory.')
+
 
     FLAGS, unparsed = parser.parse_known_args()
 
